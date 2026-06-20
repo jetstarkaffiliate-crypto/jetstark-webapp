@@ -20,7 +20,7 @@ class Order(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     buyer_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus, values_callable=lambda x: [e.value for e in x]), default=OrderStatus.PENDING)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     discount: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

@@ -23,7 +23,7 @@ class Payout(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
-    status: Mapped[PayoutStatus] = mapped_column(Enum(PayoutStatus), default=PayoutStatus.PENDING)
+    status: Mapped[PayoutStatus] = mapped_column(Enum(PayoutStatus, values_callable=lambda x: [e.value for e in x]), default=PayoutStatus.PENDING)
     payment_method: Mapped[str] = mapped_column(String(50), default="bank_transfer")
     bank_name: Mapped[str] = mapped_column(String(255), nullable=True)
     account_number: Mapped[str] = mapped_column(String(20), nullable=True)
