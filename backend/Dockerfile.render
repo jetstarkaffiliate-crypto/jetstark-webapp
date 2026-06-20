@@ -19,6 +19,7 @@ COPY frontend/ /app/frontend/
 # Render persistent disk mount for uploads
 RUN mkdir -p /opt/render/project/uploads
 ENV UPLOAD_DIR=/opt/render/project/uploads
+ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
