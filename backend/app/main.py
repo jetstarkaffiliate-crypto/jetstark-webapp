@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 from app.config import settings
 from app.database import init_db
 from app.api import auth, users, products, orders, affiliates, payouts, reviews, payments, cart, wishlist, admin
@@ -43,6 +44,9 @@ app.add_middleware(
 # Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error. Please try again later."},
@@ -51,7 +55,14 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Health check
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "version": "1.0.0", "app": settings.app_name}
+    from app.database import async_session_factory
+    try:
+        async with async_session_factory() as session:
+            await session.execute(select(1))
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return {"status": "ok", "version": "1.0.0", "app": settings.app_name, "database": db_ok}
 
 # Public config (no auth required)
 @app.get("/api/config")
