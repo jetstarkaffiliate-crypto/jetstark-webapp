@@ -42,10 +42,6 @@ services:
         value: noreply@jetstark.com
       - key: SENTRY_DSN
         sync: false
-    disk:
-      name: uploads
-      mountPath: /opt/render/project/uploads
-      sizeGB: 1
     healthCheckPath: /api/health
     autoDeploy: true
 
