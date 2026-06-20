@@ -25,21 +25,21 @@ services:
       - key: DEBUG
         value: "false"
       - key: PAYSTACK_SECRET_KEY
-        sync: false
+        value: ""
       - key: PAYSTACK_PUBLIC_KEY
-        sync: false
+        value: ""
       - key: SMTP_HOST
-        sync: false
+        value: ""
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_USER
-        sync: false
+        value: ""
       - key: SMTP_PASSWORD
-        sync: false
+        value: ""
       - key: EMAIL_FROM
         value: noreply@jetstark.com
       - key: SENTRY_DSN
-        sync: false
+        value: ""
     healthCheckPath: /api/health
     autoDeploy: true
 
