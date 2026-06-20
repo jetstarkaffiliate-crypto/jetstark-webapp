@@ -2,8 +2,6 @@ services:
   - type: web
     name: jetstark-api
     env: docker
-    repo: https://github.com/jetstarkaffilliate-crypto/jetstark
-    branch: main
     dockerfilePath: ./backend/Dockerfile.render
     plan: free
     envVars:
