@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Vendor Dashboard — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/vendor-dashboard.html" class="active">Dashboard</a>
+        <a href="/marketplace.html">Marketplace</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">V</div>
+          <div class="user-name" id="header-user-name">Vendor</div>
+        </div>
+        <button id="logout-btn" class="header-logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <div class="flex-header">
+        <h1>Vendor Dashboard</h1>
+        <button class="btn btn-primary" id="add-product-btn">+ Add Product</button>
+      </div>
+
+      <div class="stats-grid section-gap" id="vendor-stats">
+        <div class="stat-card"><span class="stat-label">Total Products</span><span class="stat-value" id="stat-total">0</span></div>
+        <div class="stat-card"><span class="stat-label">Published</span><span class="stat-value stat-value-accent" id="stat-published">0</span></div>
+        <div class="stat-card"><span class="stat-label">Pending</span><span class="stat-value stat-value-cyan" id="stat-pending">0</span></div>
+        <div class="stat-card"><span class="stat-label">Total Sales</span><span class="stat-value stat-value-accent" id="stat-sales">0</span></div>
+        <div class="stat-card"><span class="stat-label">Revenue</span><span class="stat-value stat-value-accent" id="stat-revenue">₦0</span></div>
+        <div class="stat-card"><span class="stat-label">Completed Orders</span><span class="stat-value" id="stat-completed">0</span></div>
+        <div class="stat-card"><span class="stat-label">Pending Items</span><span class="stat-value stat-value-cyan" id="stat-pending-items">0</span></div>
+      </div>
+
+      <div class="dashboard-card card-gap">
+        <h2>My Products</h2>
+        <div id="vendor-products"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text skeleton-w40"></div></div></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="product-modal" class="modal-overlay" hidden>
+    <div class="modal-content modal-wide">
+      <div class="flex items-center justify-between mb-lg">
+        <h2 id="modal-title" class="mt-0 mb-0">Add Product</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="product-form">
+        <input type="hidden" id="product-id" />
+        <div class="form-group">
+          <label class="form-label">Product Title</label>
+          <input type="text" class="form-input" id="product-title" required maxlength="200" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-input" id="product-description" required rows="4"></textarea>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-input" id="product-category" required>
+              <option value="">Select category</option>
+              <option value="digital">Digital Product</option>
+              <option value="physical">Physical Product</option>
+              <option value="service">Service</option>
+              <option value="course">Online Course</option>
+              <option value="ebook">E-book</option>
+              <option value="software">Software</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price (₦)</label>
+            <input type="number" class="form-input" id="product-price" required min="0" step="0.01" />
+          </div>
+        </div>
+        <div class="form-group-grid">
+          <div class="form-group">
+            <label class="form-label">Commission Rate (%)</label>
+            <input type="number" class="form-input" id="product-commission" value="10" min="0" max="100" step="0.1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cover Image</label>
+            <input type="file" class="form-input" id="product-image-file" accept="image/*" />
+            <input type="hidden" id="product-image" />
+            <div id="image-preview" class="preview-box" hidden>
+              <img id="preview-img" class="preview-img" />
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-md mt-lg">
+          <button type="submit" class="btn btn-primary" id="form-submit-btn">Save Product</button>
+          <button type="button" class="btn btn-outline" id="modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { products, orders, sanitizeHtml, showToast } from '/js/api.js';
+
+    async function loadCategories() {
+      try {
+        const cats = await products.categories();
+        const sel = document.getElementById('product-category');
+        if (Array.isArray(cats) && cats.length) {
+          sel.innerHTML = '<option value="">Select category</option>' +
+            cats.map(c => `<option value="${sanitizeHtml(c)}">${sanitizeHtml(c)}</option>`).join('');
+        }
+      } catch {}
+    }
+
+    function showModal(title, product = null) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('product-id').value = product ? product.id : '';
+      document.getElementById('product-title').value = product ? product.title : '';
+      document.getElementById('product-description').value = product ? product.description : '';
+      document.getElementById('product-category').value = product ? product.category : '';
+      document.getElementById('product-price').value = product ? product.price : '';
+      document.getElementById('product-commission').value = product ? product.commission_rate : 10;
+      document.getElementById('product-image').value = product ? product.cover_image_url || '' : '';
+      document.getElementById('product-image-file').value = '';
+      const preview = document.getElementById('image-preview');
+      preview.hidden = true;
+      if (product?.cover_image_url) {
+        document.getElementById('preview-img').src = product.cover_image_url;
+        preview.hidden = false;
+      }
+      document.getElementById('form-submit-btn').textContent = product ? 'Update Product' : 'Save Product';
+      document.getElementById('product-modal').hidden = false;
+    }
+
+    function hideModal() {
+      document.getElementById('product-modal').hidden = true;
+    }
+
+    document.getElementById('product-image-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const preview = document.getElementById('image-preview');
+      const previewImg = document.getElementById('preview-img');
+      previewImg.src = URL.createObjectURL(file);
+      preview.hidden = false;
+      try {
+        const result = await products.uploadImage(file);
+        document.getElementById('product-image').value = result.url;
+      } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+      }
+    });
+
+    function renderProducts(list) {
+      const el = document.getElementById('vendor-products');
+      if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><p>No products yet. Click "+ Add Product" to get started!</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(p => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <h3>${sanitizeHtml(p.title)}</h3>
+              <p>${sanitizeHtml(p.category)} ${p.cover_image_url ? '&middot; <a href="'+sanitizeHtml(p.cover_image_url)+'" target="_blank" rel="noopener">Image</a>' : ''}</p>
+            </div>
+            <span class="badge badge-${p.status}">${p.status}</span>
+          </div>
+          <div class="order-summary-row"><span>Price</span><strong>₦${Number(p.price).toLocaleString()}</strong></div>
+          <div class="order-summary-row"><span>Commission</span><strong>${p.commission_rate}%</strong></div>
+          <div class="order-summary-row"><span>Sales</span><strong>${p.sales_count || 0}</strong></div>
+          <div class="order-summary-row"><span>Rating</span><strong>${p.rating || 'N/A'} (${p.review_count || 0})</strong></div>
+          <div class="flex gap-sm with-top-border">
+            <button class="btn btn-sm btn-outline edit-product" data-id="${p.id}">Edit</button>
+            <button class="btn btn-sm btn-outline delete-product danger-btn" data-id="${p.id}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.edit-product').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          products.get(id).then(p => showModal('Edit Product', p)).catch(err => showToast(err.message, 'error'));
+        });
+      });
+
+      el.querySelectorAll('.delete-product').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!confirm('Delete this product?')) return;
+          const id = btn.dataset.id;
+          products.delete(id).then(() => loadProducts()).catch(err => showToast(err.message, 'error'));
+        });
+      });
+    }
+
+    function updateStats(products) {
+      const total = products.length;
+      const published = products.filter(p => p.status === 'published').length;
+      const pending = products.filter(p => p.status === 'pending').length;
+      const rejected = products.filter(p => p.status === 'rejected').length;
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-published').textContent = published;
+      document.getElementById('stat-pending').textContent = pending;
+      document.getElementById('stat-rejected').textContent = rejected;
+    }
+
+    function loadEarnings() {
+      orders.vendorEarnings().then(e => {
+        document.getElementById('stat-sales').textContent = e.total_sales || 0;
+        document.getElementById('stat-revenue').textContent = `₦${Number(e.total_revenue || 0).toLocaleString()}`;
+        document.getElementById('stat-completed').textContent = e.completed_orders || 0;
+        document.getElementById('stat-pending-items').textContent = e.pending_items || 0;
+      }).catch(() => {});
+    }
+
+    function loadProducts() {
+      products.getVendorProducts().then(data => {
+        const list = Array.isArray(data) ? data : data?.products || [];
+        updateStats(list);
+        renderProducts(list);
+      }).catch(err => {
+        document.getElementById('vendor-products').innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`;
+      });
+      loadEarnings();
+    }
+
+    if (requireAuth()) {
+      setupHeader();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+      loadCategories();
+      loadProducts();
+
+      document.getElementById('add-product-btn').addEventListener('click', () => showModal('Add Product'));
+      document.getElementById('modal-close').addEventListener('click', hideModal);
+      document.getElementById('modal-cancel').addEventListener('click', hideModal);
+      document.getElementById('product-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) hideModal();
+      });
+
+      document.getElementById('product-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('product-id').value;
+        const data = {
+          title: document.getElementById('product-title').value,
+          description: document.getElementById('product-description').value,
+          category: document.getElementById('product-category').value,
+          price: parseFloat(document.getElementById('product-price').value),
+          commission_rate: parseFloat(document.getElementById('product-commission').value),
+          cover_image_url: document.getElementById('product-image').value || null,
+        };
+
+        try {
+          if (id) {
+            await products.update(id, data);
+          } else {
+            await products.create(data);
+          }
+          hideModal();
+          loadProducts();
+        } catch (err) {
+          showToast('Error: ' + err.message, 'error');
+        }
+      });
+    }
+  </script>
+</body>
+</html>

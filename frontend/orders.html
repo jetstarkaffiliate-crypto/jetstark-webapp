@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>My Orders — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/account.html">Account</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/orders.html" class="active">Orders</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">U</div>
+          <div class="user-name" id="header-user-name">User</div>
+        </div>
+        <button id="logout-btn" class="header-logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>My Orders</h1>
+      <div class="dashboard-card" id="orders-list">
+        <p>Loading your orders...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a><p>Track and manage your orders.</p></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { orders, sanitizeHtml } from '/js/api.js';
+
+    function renderItems(order) {
+      if (!order.items?.length) return '';
+      return order.items.map(item => `
+        <div class="order-item-row">
+          <span class="order-item-name">${sanitizeHtml(item.product_name)}</span>
+          <span class="order-item-price">₦${Number(item.price).toLocaleString()} x${item.quantity}</span>
+        </div>
+      `).join('');
+    }
+
+    if (requireAuth()) {
+      setupHeader();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+
+      orders.list().then(data => {
+        const list = data.orders || [];
+        const el = document.getElementById('orders-list');
+        if (!list.length) {
+          el.innerHTML = '<div class="empty-state"><p>No orders yet. <a href="/marketplace.html">Start shopping!</a></p></div>';
+          return;
+        }
+        el.innerHTML = list.map((o, idx) => `
+          <article class="order-card">
+            <div class="order-card-header">
+              <div>
+                <h3>Order #${sanitizeHtml(o.id.slice(0, 8))}</h3>
+                <p>${new Date(o.created_at).toLocaleDateString()} &middot; ${o.items?.length || 0} item(s)</p>
+              </div>
+              <span class="badge badge-${o.status}">${o.status}</span>
+            </div>
+            <div class="order-summary-row">
+              <span>Total</span><strong>₦${Number(o.total).toLocaleString()}</strong>
+            </div>
+            <div class="mt-sm">
+              <button class="order-detail-toggle" data-target="items-${idx}">Show items</button>
+            </div>
+            <div class="order-items-detail" id="items-${idx}">
+              ${renderItems(o)}
+            </div>
+          </article>
+        `).join('');
+
+        el.querySelectorAll('.order-detail-toggle').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.target);
+            if (target) {
+              target.classList.toggle('open');
+              btn.textContent = target.classList.contains('open') ? 'Hide items' : 'Show items';
+            }
+          });
+        });
+      }).catch(err => {
+        document.getElementById('orders-list').innerHTML =
+          `<div class="empty-state"><p>Error: ${sanitizeHtml(err.message)}</p></div>`;
+      });
+    }
+  </script>
+</body>
+</html>

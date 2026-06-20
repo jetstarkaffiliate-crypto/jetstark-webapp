@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Checkout — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/how-it-works.html">How it Works</a>
+      </nav>
+      <div class="auth-actions">
+        <a class="button button-secondary" href="/login.html">Login</a>
+        <a class="button button-primary" href="/signup.html">Join Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="checkout-page">
+    <div class="container checkout-grid">
+      <div class="checkout-cart">
+        <h1>Shopping Cart</h1>
+        <div id="cart-items"><p>Your cart is empty. <a href="/marketplace.html">Continue shopping.</a></p></div>
+        <div class="cart-total" id="cart-total" hidden>
+          <h2>Total: ₦<span id="total-amount">0</span></h2>
+        </div>
+      </div>
+
+      <div class="checkout-form-container" id="checkout-form-container" hidden>
+        <form class="auth-form" id="checkout-form">
+          <h2>Contact Information</h2>
+          <div class="form-field">
+            <label for="full-name">Full Name</label>
+            <input id="full-name" type="text" required />
+          </div>
+          <div class="form-field">
+            <label for="email">Email</label>
+            <input id="email" type="email" required />
+          </div>
+          <div class="form-field">
+            <label for="phone">Phone</label>
+            <input id="phone" type="tel" required />
+          </div>
+          <div class="form-field error-message" id="checkout-error" hidden></div>
+          <button class="button button-primary" type="submit" id="place-order-btn">Place Order</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { orders, cart as cartApi, config as configApi, payments, sanitizeHtml, getTokens, clearTokens, showToast } from '/js/api.js';
+    import { setupHeader } from '/js/auth.js';
+
+    function requireAuth() {
+      const t = getTokens();
+      if (!t.access) { window.location.href = '/login.html'; return false; }
+      return true;
+    }
+
+    let currentCart = { items: [], total: 0 };
+
+    async function renderCart() {
+      const cartEl = document.getElementById('cart-items');
+      const checkoutContainer = document.getElementById('checkout-form-container');
+      const totalSpan = document.getElementById('total-amount');
+
+      try {
+        currentCart = await cartApi.get();
+      } catch {
+        cartEl.innerHTML = '<p>Could not load cart. <a href="/cart.html">Try again.</a></p>';
+        checkoutContainer.style.display = 'none';
+        document.getElementById('cart-total').style.display = 'none';
+        return;
+      }
+
+      if (!currentCart.items?.length) {
+        cartEl.innerHTML = '<p>Your cart is empty. <a href="/marketplace.html">Continue shopping.</a></p>';
+        checkoutContainer.style.display = 'none';
+        document.getElementById('cart-total').style.display = 'none';
+        return;
+      }
+
+      cartEl.innerHTML = currentCart.items.map((item, i) => `
+        <div class="cart-item">
+          <span>${sanitizeHtml(item.product_name)} x ${item.quantity}</span>
+          <span>₦${(Number(item.product_price) * item.quantity).toLocaleString()}</span>
+          <button class="button button-small" data-remove="${sanitizeHtml(item.id)}">Remove</button>
+        </div>
+      `).join('');
+
+      totalSpan.textContent = Number(currentCart.total).toLocaleString();
+      document.getElementById('cart-total').style.display = 'block';
+      checkoutContainer.style.display = 'block';
+
+      cartEl.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try { await cartApi.remove(btn.dataset.remove); renderCart(); }
+          catch { renderCart(); }
+        });
+      });
+    }
+
+    if (!requireAuth()) {}
+    setupHeader();
+    renderCart();
+
+    document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('place-order-btn');
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
+      const fullName = document.getElementById('full-name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      if (!fullName || !email || !phone) { showToast('Please fill all fields.', 'error'); btn.disabled = false; btn.textContent = 'Place Order'; return; }
+
+      const errEl = document.getElementById('checkout-error');
+      errEl.style.display = 'none';
+
+      try {
+        const affData = JSON.parse(sessionStorage.getItem('jetstark_affiliate') || 'null');
+        const order = await orders.create({
+          items: currentCart.items.map(i => ({
+            product_id: i.product_id,
+            product_name: i.product_name,
+            price: Number(i.product_price),
+            quantity: i.quantity,
+          })),
+          buyer_email: email,
+          buyer_phone: phone,
+          payment_method: 'paystack',
+          affiliate_ref: affData?.ref || null,
+          affiliate_link_code: affData?.link || null,
+        });
+
+        await cartApi.clear();
+
+        const cfg = await configApi.get();
+        const paystackKey = cfg?.paystack_public_key;
+
+        if (paystackKey) {
+          const payment = await payments.initialize(order.id);
+          if (payment?.authorization_url) {
+            if (typeof PaystackPop === 'undefined') {
+              await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://js.paystack.co/v1/inline.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+              });
+            }
+            const handler = PaystackPop.setup({
+              key: paystackKey,
+              email: email,
+              amount: Math.round(Number(order.total) * 100),
+              ref: payment.reference,
+              onClose: () => {
+                btn.disabled = false;
+                btn.textContent = 'Place Order';
+              },
+              callback: async () => {
+                try { await payments.verify(payment.reference); } catch (e) {}
+                sessionStorage.removeItem('jetstark_affiliate');
+                window.location.href = '/orders.html';
+              },
+            });
+            handler.openIframe();
+            return;
+          }
+        }
+
+        sessionStorage.removeItem('jetstark_affiliate');
+        window.location.href = '/orders.html';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Place Order';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+.env
+.venv/
+.env.example
+.git/
+.gitignore
+.github/
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+README.md
+GUIDE.md
+docker-compose.yml
+nginx*.conf
+render.yaml
+start.ps1
+stop.ps1

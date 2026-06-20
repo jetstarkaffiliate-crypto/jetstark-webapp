@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Admin Dashboard — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/admin-dashboard.html" class="active">Admin</a>
+        <a href="/marketplace.html">Marketplace</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">A</div>
+          <div class="user-name" id="header-user-name">Admin</div>
+        </div>
+        <button id="logout-btn" class="header-logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>Admin Dashboard</h1>
+
+      <div class="stats-grid" id="admin-stats">
+        <div class="stat-card"><span class="stat-label">Total Users</span><span class="stat-value" id="stat-users">0</span></div>
+        <div class="stat-card"><span class="stat-label">Total Products</span><span class="stat-value" id="stat-products">0</span></div>
+        <div class="stat-card"><span class="stat-label">Pending Review</span><span class="stat-value stat-value-cyan" id="stat-pending">0</span></div>
+        <div class="stat-card"><span class="stat-label">Total Orders</span><span class="stat-value" id="stat-orders">0</span></div>
+        <div class="stat-card"><span class="stat-label">Revenue</span><span class="stat-value stat-value-accent" id="stat-revenue">₦0</span></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="pending">Pending Review</button>
+        <button class="tab-btn" data-tab="all-products">All Products</button>
+        <button class="tab-btn" data-tab="users">Users</button>
+        <button class="tab-btn" data-tab="orders">Orders</button>
+      </div>
+
+      <div class="tab-content" id="tab-pending">
+        <div class="dashboard-card">
+          <h2>Pending Products for Review</h2>
+          <div id="pending-products"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text skeleton-w60"></div></div></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-all-products" hidden>
+        <div class="dashboard-card">
+          <h2>All Products</h2>
+          <div id="all-products-admin"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div></div></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-users" hidden>
+        <div class="dashboard-card">
+          <h2>User Management</h2>
+          <div id="admin-users"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div></div></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-orders" hidden>
+        <div class="dashboard-card">
+          <h2>All Orders</h2>
+          <div id="admin-orders"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { admin, orders, sanitizeHtml, showToast } from '/js/api.js';
+
+    function loadStats() {
+      admin.stats().then(s => {
+        document.getElementById('stat-users').textContent = s.total_users || 0;
+        document.getElementById('stat-products').textContent = s.total_products || 0;
+        document.getElementById('stat-pending').textContent = s.pending_products || 0;
+        document.getElementById('stat-orders').textContent = s.total_orders || 0;
+        document.getElementById('stat-revenue').textContent = `₦${Number(s.total_revenue || 0).toLocaleString()}`;
+      }).catch(() => {});
+    }
+
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.hidden = true);
+      document.getElementById(`tab-${tabName}`).hidden = false;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('active');
+    }
+
+    function renderPendingProducts(products) {
+      const el = document.getElementById('pending-products');
+      document.getElementById('stat-pending').textContent = products.length;
+      if (!products.length) {
+        el.innerHTML = '<div class="empty-state"><p>No products pending review.</p></div>';
+        return;
+      }
+      el.innerHTML = products.map(p => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <h3>${sanitizeHtml(p.title)}</h3>
+              <p>by ${sanitizeHtml(p.vendor_name || 'Unknown')} &middot; ${sanitizeHtml(p.category)}</p>
+            </div>
+            <span class="badge badge-pending">pending</span>
+          </div>
+          <div class="order-summary-row"><span>Price</span><strong>₦${Number(p.price).toLocaleString()}</strong></div>
+          <div class="order-summary-row"><span>Commission</span><strong>${p.commission_rate}%</strong></div>
+          <div class="order-summary-row"><span class="text-muted">${sanitizeHtml(p.description?.substring(0, 200))}${p.description?.length > 200 ? '...' : ''}</span></div>
+          <div class="flex gap-sm section-gap with-top-border-sm">
+            <button class="btn btn-sm btn-primary approve-product" data-id="${p.id}">Approve</button>
+            <button class="btn btn-sm btn-outline reject-product danger-btn" data-id="${p.id}">Reject</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.approve-product').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await admin.approveProduct(btn.dataset.id);
+            loadPending();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+
+      el.querySelectorAll('.reject-product').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Reject this product?')) return;
+          try {
+            await admin.rejectProduct(btn.dataset.id);
+            loadPending();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+    }
+
+    function renderAllProducts(products) {
+      const el = document.getElementById('all-products-admin');
+      if (!products.length) {
+        el.innerHTML = '<div class="empty-state"><p>No products in the system.</p></div>';
+        return;
+      }
+      el.innerHTML = products.map(p => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <h3>${sanitizeHtml(p.title)}</h3>
+              <p>by ${sanitizeHtml(p.vendor_name || 'Unknown')} &middot; ${sanitizeHtml(p.category)}</p>
+            </div>
+            <span class="badge badge-${p.status}">${p.status}</span>
+          </div>
+          <div class="order-summary-row"><span>Price</span><strong>₦${Number(p.price).toLocaleString()}</strong></div>
+          <div class="order-summary-row"><span>Sales</span><strong>${p.sales_count || 0}</strong></div>
+        </div>
+      `).join('');
+    }
+
+    function renderUsers(users) {
+      const el = document.getElementById('admin-users');
+      document.getElementById('stat-users').textContent = users.length;
+      if (!users.length) {
+        el.innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
+        return;
+      }
+      el.innerHTML = users.map(u => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <h3>${sanitizeHtml(u.full_name)}</h3>
+              <p>${sanitizeHtml(u.email)} &middot; ${u.role}</p>
+            </div>
+            <span class="badge badge-${u.is_active ? 'approved' : 'rejected'}">${u.is_active ? 'Active' : 'Suspended'}</span>
+          </div>
+          <div class="order-summary-row"><span>Phone</span><strong>${sanitizeHtml(u.phone || 'N/A')}</strong></div>
+          <div class="order-summary-row"><span>Joined</span><strong>${new Date(u.created_at).toLocaleDateString()}</strong></div>
+          ${u.is_active ? `
+          <div class="flex gap-sm with-top-border">
+            <button class="btn btn-sm btn-outline suspend-user danger-btn" data-id="${u.id}">Suspend</button>
+          </div>` : ''}
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.suspend-user').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Suspend this user?')) return;
+          try {
+            await admin.suspendUser(btn.dataset.id);
+            loadUsers();
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+      });
+    }
+
+    const ORDER_STATUSES = ['pending', 'processing', 'completed', 'failed', 'refunded'];
+
+    function renderOrders(ordersList) {
+      const el = document.getElementById('admin-orders');
+      document.getElementById('stat-orders').textContent = ordersList.length;
+      if (!ordersList.length) {
+        el.innerHTML = '<div class="empty-state"><p>No orders yet.</p></div>';
+        return;
+      }
+      el.innerHTML = ordersList.map(o => `
+        <div class="order-card">
+          <div class="order-card-header">
+            <div>
+              <h3>Order #${sanitizeHtml(o.id.substring(0, 8))}</h3>
+              <p>${sanitizeHtml(o.buyer_email)}</p>
+            </div>
+            <span class="badge badge-${o.status}">${o.status}</span>
+          </div>
+          <div class="order-summary-row"><span>Total</span><strong>₦${Number(o.total).toLocaleString()}</strong></div>
+          <div class="order-summary-row"><span>Items</span><strong>${o.items?.length || 0}</strong></div>
+          <div class="order-summary-row"><span>Date</span><strong>${new Date(o.created_at).toLocaleDateString()}</strong></div>
+          <div class="flex gap-sm items-center with-top-border-xs">
+            <label class="text-muted text-sm">Status:</label>
+            <select class="status-select" data-order-id="${sanitizeHtml(o.id)}">
+              ${ORDER_STATUSES.map(s => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const orderId = sel.dataset.orderId;
+          const newStatus = sel.value;
+          try {
+            await orders.updateStatus(orderId, newStatus);
+            loadOrders();
+          } catch (err) {
+            showToast('Failed to update status: ' + err.message, 'error');
+            loadOrders();
+          }
+        });
+      });
+    }
+
+    function loadPending() {
+      admin.listPendingProducts()
+        .then(data => renderPendingProducts(Array.isArray(data) ? data : data?.products || []))
+        .catch(err => document.getElementById('pending-products').innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`);
+    }
+
+    function loadAllProducts() {
+      admin.listAllProducts()
+        .then(data => renderAllProducts(Array.isArray(data) ? data : data?.products || []))
+        .catch(err => document.getElementById('all-products-admin').innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`);
+    }
+
+    function loadUsers() {
+      admin.listUsers()
+        .then(data => renderUsers(Array.isArray(data) ? data : []))
+        .catch(err => document.getElementById('admin-users').innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`);
+    }
+
+    function loadOrders() {
+      admin.listAllOrders()
+        .then(data => {
+          const list = data?.orders || [];
+          if (list.length) {
+            renderOrders(list);
+          } else {
+            document.getElementById('admin-orders').innerHTML = '<div class="empty-state"><p>No orders yet.</p></div>';
+            document.getElementById('stat-orders').textContent = '0';
+          }
+        })
+        .catch(err => document.getElementById('admin-orders').innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`);
+    }
+
+    if (requireAuth()) {
+      setupHeader();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+
+      loadStats();
+      loadPending();
+      loadAllProducts();
+      loadUsers();
+      loadOrders();
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => showTab(btn.dataset.tab));
+      });
+    }
+  </script>
+</body>
+</html>

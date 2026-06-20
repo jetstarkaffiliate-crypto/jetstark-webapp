@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>My Wishlist — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/cart.html">Cart</a>
+      </nav>
+      <div class="auth-actions" id="header-auth">
+        <a class="button button-secondary" href="/login.html">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>My Wishlist</h1>
+      <div id="wishlist-container"><p>Loading...</p></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a><p>Products you love, saved for later.</p></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { wishlist, cart, sanitizeHtml, getTokens, showToast } from '/js/api.js';
+    import { setupHeader, handleLogout } from '/js/auth.js';
+
+    function requireAuth() {
+      const t = getTokens();
+      if (!t.access) { window.location.href = '/login.html'; return false; }
+      return true;
+    }
+
+    async function renderWishlist() {
+      const container = document.getElementById('wishlist-container');
+      try {
+        const data = await wishlist.get();
+        if (!data.items?.length) {
+          container.innerHTML = '<div class="empty-state"><p>Your wishlist is empty. <a href="/marketplace.html">Browse products.</a></p></div>';
+          return;
+        }
+        container.innerHTML = `
+          <div class="wishlist-grid">
+            ${data.items.map(item => `
+              <div class="wishlist-item" data-id="${sanitizeHtml(item.product_id)}">
+                <div class="wishlist-img">${item.product_image ? `<img src="${sanitizeHtml(item.product_image)}" alt="" class="wishlist-img-tag" />` : 'No image'}</div>
+                <div class="wishlist-info">
+                  <div class="wishlist-name">${sanitizeHtml(item.product_name)}</div>
+                  <div class="wishlist-price">₦${Number(item.product_price).toLocaleString()}</div>
+                </div>
+                <button class="btn btn-sm btn-primary add-to-cart-btn">Add to Cart</button>
+                <button class="btn btn-sm btn-outline remove-btn danger-btn">Remove</button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        container.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const row = e.target.closest('.wishlist-item');
+            const productId = row.dataset.id;
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+            try { await cart.add({ product_id: productId, quantity: 1 }); btn.textContent = 'Added!'; }
+            catch { btn.textContent = 'Error'; }
+            setTimeout(() => { btn.textContent = 'Add to Cart'; btn.disabled = false; }, 1500);
+          });
+        });
+
+        container.querySelectorAll('.remove-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const row = e.target.closest('.wishlist-item');
+            const productId = row.dataset.id;
+            try { await wishlist.remove(productId); renderWishlist(); }
+            catch { showToast('Failed to remove', 'error'); }
+          });
+        });
+      } catch (err) {
+        container.innerHTML = `<p>Error: ${sanitizeHtml(err.message)}</p>`;
+      }
+    }
+
+    if (requireAuth()) {
+      setupHeader();
+      renderWishlist();
+    }
+  </script>
+</body>
+</html>

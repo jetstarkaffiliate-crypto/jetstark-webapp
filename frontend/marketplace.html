@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Marketplace — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">
+        <img src="assets/jetstark-nobg.png" alt="Jetstark" class="logo-image" />
+      </a>
+      <nav class="nav-links">
+        <a href="/marketplace.html" class="active">Marketplace</a>
+        <a href="/how-it-works.html">How it Works</a>
+      </nav>
+      <div class="auth-actions" id="header-auth">
+        <a class="button button-secondary" href="/login.html">Login</a>
+        <a class="button button-primary" href="/signup.html">Join Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="marketplace-page">
+    <section class="marketplace-hero">
+      <div class="container">
+        <h1>Digital Products Marketplace</h1>
+        <p>Discover, promote, and sell digital products. Fast payouts. Nigeria-focused.</p>
+        <div class="search-filter-bar">
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search products..." />
+            <button class="search-btn" id="search-btn">Go</button>
+          </div>
+          <div class="filter-controls">
+            <select id="category-filter" class="filter-select">
+              <option value="">All Categories</option>
+              <option value="Courses">Courses</option>
+              <option value="Templates">Templates</option>
+              <option value="Tools">Tools</option>
+            </select>
+            <select id="sort-filter" class="filter-select">
+              <option value="popular">Most Popular</option>
+              <option value="newest">Newest</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="rating">Highest Rated</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketplace-grid">
+      <div class="container">
+        <div class="products-list" id="products-list">
+          <div class="empty-state"><p>Loading products...</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="logo footer-logo" href="/">Jetstark</a>
+        <p>Buy and sell digital products with confidence on Africa's fastest payment platform.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/how-it-works.html">How It Works</a>
+      </div>
+    </div>
+    <div class="license-status">
+      <p>&copy; 2026 Jetstark Inc. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { renderProductGrid } from '/js/marketplace.js';
+    import { setupPublicHeader } from '/js/auth.js';
+    import { products as productsApi, sanitizeHtml } from '/js/api.js';
+
+    setupPublicHeader();
+
+    let currentParams = {};
+
+    async function loadCategories() {
+      try {
+        const cats = await productsApi.categories();
+        const sel = document.getElementById('category-filter');
+        sel.innerHTML = '<option value="">All Categories</option>' +
+          (Array.isArray(cats) ? cats : []).map(c => `<option value="${sanitizeHtml(c)}">${sanitizeHtml(c)}</option>`).join('');
+      } catch {}
+    }
+
+    async function loadProducts(reset = true) {
+      const search = document.getElementById('search-input')?.value.trim();
+      const category = document.getElementById('category-filter')?.value;
+      const sort = document.getElementById('sort-filter')?.value;
+
+      currentParams = { search: search || undefined, category: category || undefined, sort: sort || undefined };
+      await renderProductGrid('products-list', currentParams, !reset);
+    }
+
+    document.getElementById('search-btn')?.addEventListener('click', () => loadProducts(true));
+    document.getElementById('search-input')?.addEventListener('keyup', (e) => { if (e.key === 'Enter') loadProducts(true); });
+    document.getElementById('category-filter')?.addEventListener('change', () => loadProducts(true));
+    document.getElementById('sort-filter')?.addEventListener('change', () => loadProducts(true));
+
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'load-more-btn') loadProducts(false);
+    });
+
+    loadCategories();
+    loadProducts(true);
+  </script>
+</body>
+</html>

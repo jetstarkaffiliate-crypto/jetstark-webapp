@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Product — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/how-it-works.html">How it Works</a>
+      </nav>
+      <div class="auth-actions" id="header-auth">
+        <a class="button button-secondary" href="/login.html">Login</a>
+        <a class="button button-primary" href="/signup.html">Join Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="product-detail-page">
+    <div class="container product-detail-grid">
+      <div class="product-gallery" id="product-image">📦</div>
+      <div class="product-info">
+        <nav class="breadcrumbs">
+          <a href="/marketplace.html">Marketplace</a> / <span id="breadcrumb-category">Category</span> / <span id="breadcrumb-name">Product</span>
+        </nav>
+        <h1 id="product-name">Loading...</h1>
+        <div class="rating-row">
+          <span id="product-rating">⭐ 0.0</span>
+          <span id="product-reviews">(0 reviews)</span>
+        </div>
+        <p class="product-description-full" id="product-long-description"></p>
+        <div class="price-area">
+          <span class="price" id="product-price">₦0</span>
+        </div>
+        <p id="affiliate-commission">Commission info</p>
+        <div class="product-stats">
+          <div class="stat"><span>Sales</span><strong id="stat-sales">0</strong></div>
+        </div>
+        <div class="flex gap-sm flex-wrap mt-lg">
+          <button class="button button-primary" id="add-to-cart-btn">Add to Cart</button>
+          <button class="button button-secondary" id="wishlist-btn">Save to Wishlist</button>
+          <button class="button button-secondary" id="affiliate-link-btn" hidden>Get Affiliate Link</button>
+        </div>
+        <div id="affiliate-link-result" class="affiliate-link-box" hidden>
+          <p class="affiliate-link-label">Your affiliate link (click to copy):</p>
+          <code id="affiliate-link-code" class="affiliate-link-code"></code>
+        </div>
+      </div>
+    </div>
+    <div class="container"><section class="reviews-section" id="reviews-section">
+      <h2>Reviews</h2>
+      <div class="review-form" id="review-form-container" hidden>
+        <h3>Write a Review</h3>
+        <form id="review-form">
+          <div class="star-rating">
+            <span>Rating: </span>
+            <select id="review-rating" required>
+              <option value="">Select</option>
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Good</option>
+              <option value="3">3 - Average</option>
+              <option value="2">2 - Poor</option>
+              <option value="1">1 - Terrible</option>
+            </select>
+          </div>
+          <textarea id="review-comment" class="review-textarea" placeholder="Share your experience with this product (optional)" maxlength="2000" rows="3"></textarea>
+          <button type="submit" class="button mt-sm">Submit Review</button>
+        </form>
+        <p id="review-form-status" class="review-form-status"></p>
+      </div>
+      <div id="reviews-container"><p>No reviews yet.</p></div>
+    </section></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a><p>Digital products marketplace.</p></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { products, reviews, affiliate, cart, wishlist, sanitizeHtml, getTokens, showToast } from '/js/api.js';
+    import { requireAuth, setupPublicHeader } from '/js/auth.js';
+
+    setupPublicHeader();
+
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('id');
+    const affiliateRef = params.get('ref');
+    const affiliateLinkCode = params.get('link');
+
+    if (affiliateLinkCode) {
+      affiliate.trackClick(affiliateLinkCode).catch(() => {});
+    }
+
+    if (affiliateRef && affiliateLinkCode && productId) {
+      sessionStorage.setItem('jetstark_affiliate', JSON.stringify({ ref: affiliateRef, link: affiliateLinkCode, product_id: productId }));
+    }
+
+    if (!productId) {
+      document.querySelector('main').innerHTML = '<div class="container"><p>Product not found.</p></div>';
+    } else {
+      products.get(productId).then(product => {
+        document.getElementById('product-name').textContent = product.title;
+        document.getElementById('product-rating').textContent = `⭐ ${product.rating}`;
+        document.getElementById('product-reviews').textContent = `(${product.review_count} reviews)`;
+        document.getElementById('product-price').textContent = `₦${Number(product.price).toLocaleString()}`;
+        document.getElementById('product-long-description').textContent = product.description;
+        document.getElementById('affiliate-commission').textContent = `${product.commission_rate}% Commission for Affiliates`;
+        document.getElementById('stat-sales').textContent = product.sales_count.toLocaleString();
+        document.getElementById('breadcrumb-category').textContent = product.category;
+        document.getElementById('breadcrumb-name').textContent = product.title;
+
+        const imgEl = document.getElementById('product-image');
+        if (product.cover_image_url) {
+          imgEl.innerHTML = `<img src="${product.cover_image_url}" alt="${sanitizeHtml(product.title)}" class="product-main-image">`;
+        }
+
+        document.getElementById('add-to-cart-btn').addEventListener('click', async () => {
+          const btn = document.getElementById('add-to-cart-btn');
+          const tokens = getTokens();
+          if (!tokens.access) {
+            window.location.href = '/login.html';
+            return;
+          }
+          btn.disabled = true;
+          btn.textContent = 'Adding...';
+          try {
+            await cart.add({ product_id: product.id, quantity: 1 });
+            btn.textContent = 'Added!';
+            setTimeout(() => { btn.textContent = 'Add to Cart'; btn.disabled = false; }, 1500);
+          } catch (err) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = 'Add to Cart'; btn.disabled = false; }, 2000);
+          }
+        });
+
+        const tokens = getTokens();
+        if (tokens.access) {
+          try {
+            const payload = JSON.parse(atob(tokens.access.split('.')[1]));
+            if (payload.role === 'affiliate') {
+              const linkBtn = document.getElementById('affiliate-link-btn');
+              linkBtn.style.display = 'inline-block';
+              linkBtn.addEventListener('click', async () => {
+                try {
+                  const link = await affiliate.createLink({ product_id: productId });
+                  const resultEl = document.getElementById('affiliate-link-result');
+                  const codeEl = document.getElementById('affiliate-link-code');
+                  codeEl.textContent = window.location.origin + link.url;
+                  resultEl.style.display = 'block';
+                  codeEl.addEventListener('click', () => {
+                    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+                      codeEl.style.border = '1px solid var(--accent-1)';
+                      setTimeout(() => codeEl.style.border = 'none', 1500);
+                    });
+                  });
+                } catch (err) {
+                  showToast(err.message, 'error');
+                }
+              });
+            }
+          } catch (e) {}
+        }
+
+        document.getElementById('wishlist-btn').addEventListener('click', async () => {
+          const tokens = getTokens();
+          if (!tokens.access) { window.location.href = '/login.html'; return; }
+          const btn = document.getElementById('wishlist-btn');
+          btn.disabled = true;
+          try {
+            await wishlist.add(productId);
+            btn.textContent = 'Saved!';
+            setTimeout(() => { btn.textContent = 'Save to Wishlist'; btn.disabled = false; }, 2000);
+          } catch { btn.textContent = 'Error'; setTimeout(() => { btn.textContent = 'Save to Wishlist'; btn.disabled = false; }, 2000); }
+        });
+
+        reviews.getByProduct(productId).then(data => {
+          const list = Array.isArray(data) ? data : data?.reviews || [];
+          const container = document.getElementById('reviews-container');
+          if (!list.length) { container.innerHTML = '<p>No reviews yet.</p>'; return; }
+          container.innerHTML = list.map(r => `
+            <div class="review-card">
+              <strong>${sanitizeHtml(r.user_name || 'Anonymous')}</strong>
+              <span>${'⭐'.repeat(Math.round(r.rating))}</span>
+              <p>${sanitizeHtml(r.comment || '')}</p>
+            </div>
+          `).join('');
+        }).catch(() => {});
+
+        const tokens = getTokens();
+        if (tokens.access) {
+          document.getElementById('review-form-container').style.display = 'block';
+          document.getElementById('review-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const rating = parseInt(document.getElementById('review-rating').value, 10);
+            const comment = document.getElementById('review-comment').value.trim();
+            if (!rating) { document.getElementById('review-form-status').textContent = 'Please select a rating.'; return; }
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true; btn.textContent = 'Submitting...';
+            try {
+              await reviews.create(productId, { rating, comment: comment || undefined });
+              document.getElementById('review-form-status').textContent = 'Review submitted!';
+              document.getElementById('review-form').reset();
+              const data = await reviews.getByProduct(productId);
+              const list = Array.isArray(data) ? data : data?.reviews || [];
+              const container = document.getElementById('reviews-container');
+              container.innerHTML = list.map(r => `
+                <div class="review-card">
+                  <strong>${sanitizeHtml(r.user_name || 'Anonymous')}</strong>
+                  <span>${'⭐'.repeat(Math.round(r.rating))}</span>
+                  <p>${sanitizeHtml(r.comment || '')}</p>
+                </div>
+              `).join('');
+              btn.disabled = false; btn.textContent = 'Submit Review';
+            } catch (err) {
+              document.getElementById('review-form-status').textContent = 'Error: ' + err.message;
+              btn.disabled = false; btn.textContent = 'Submit Review';
+            }
+          });
+        }
+      }).catch(() => {
+        document.querySelector('main').innerHTML = '<div class="container"><p>Product not found.</p></div>';
+      });
+    }
+
+
+  </script>
+</body>
+</html>

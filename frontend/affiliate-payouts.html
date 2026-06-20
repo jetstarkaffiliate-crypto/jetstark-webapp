@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payouts — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/affiliate-dashboard.html">Dashboard</a>
+        <a href="/affiliate-payouts.html" class="active">Payouts</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">A</div>
+          <div class="user-name" id="header-user-name">Affiliate</div>
+        </div>
+        <button class="header-logout-btn" id="logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>Payouts</h1>
+      <div class="stat-grid mb-xl">
+        <article class="stat-card">
+          <span>Available Balance</span>
+          <strong id="available-balance">₦0</strong>
+        </article>
+        <article class="stat-card">
+          <span>Total Earned</span>
+          <strong id="total-earned">₦0</strong>
+        </article>
+      </div>
+      <div class="dashboard-card">
+        <h2>Payout History</h2>
+        <div id="payout-history">
+          <p>Loading...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { loadPayouts } from '/js/dashboard.js';
+
+    if (requireAuth()) {
+      setupHeader();
+      loadPayouts();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+    }
+  </script>
+</body>
+</html>

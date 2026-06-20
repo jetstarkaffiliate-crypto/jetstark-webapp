@@ -1,0 +1,25 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Install system deps for psycopg2 / asyncpg
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Backend code
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/ .
+RUN chmod +x start.sh
+
+# Frontend code (served by FastAPI as static files)
+COPY frontend/ /app/frontend/
+
+# Render persistent disk mount for uploads
+RUN mkdir -p /opt/render/project/uploads
+ENV UPLOAD_DIR=/opt/render/project/uploads
+
+EXPOSE 8000
+
+CMD ["bash", "start.sh"]

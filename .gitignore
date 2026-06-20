@@ -1,0 +1,45 @@
+# Environment
+.env
+*.pyc
+__pycache__/
+*.pyo
+
+# Backend venv
+backend/.venv/
+
+# Temp files
+.jetstark_jobs.xml
+.jetstark_pids.json
+.logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite
+
+# Docker
+docker-compose.override.yml
+
+# Deployment
+node_modules/
+.cache/
+
+# Uploads
+uploads/
+!backend/uploads/.gitkeep

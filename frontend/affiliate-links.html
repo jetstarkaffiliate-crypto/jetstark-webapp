@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Affiliate Links — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/affiliate-dashboard.html">Dashboard</a>
+        <a href="/affiliate-links.html" class="active">Links</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">A</div>
+          <div class="user-name" id="header-user-name">Affiliate</div>
+        </div>
+        <button class="header-logout-btn" id="logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>My Affiliate Links</h1>
+      <div class="dashboard-card">
+        <table class="dashboard-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>URL</th>
+              <th>Clicks</th>
+              <th>Conversions</th>
+              <th>Rate</th>
+              <th>Earnings</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="linksTableBody">
+            <tr><td colspan="7">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { loadAffiliateLinks } from '/js/dashboard.js';
+
+    if (requireAuth()) {
+      setupHeader();
+      loadAffiliateLinks();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+    }
+  </script>
+</body>
+</html>

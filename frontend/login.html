@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Login — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/how-it-works.html">How it Works</a>
+        <a href="/marketplace.html">Marketplace</a>
+      </nav>
+      <div class="auth-actions">
+        <a class="button button-secondary" href="/signup.html">Join Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="auth-page">
+    <div class="container auth-grid">
+      <section class="auth-copy">
+        <span class="section-label">Welcome back</span>
+        <h1>Log in and check your affiliate performance.</h1>
+        <p>Access your personalized dashboard for link analytics, payouts, and creator tools.</p>
+      </section>
+
+      <section class="auth-form-card">
+        <form class="auth-form" id="login-form">
+          <h2>Sign in</h2>
+          <div class="form-field">
+            <label for="email-login">Email address</label>
+            <input id="email-login" type="email" placeholder="your@email.com" required autocomplete="email" />
+          </div>
+          <div class="form-field">
+            <label for="password-login">Password</label>
+            <input id="password-login" type="password" placeholder="Enter your password" required autocomplete="current-password" />
+             <a href="/forgot-password.html" class="inline-link">Forgot password?</a>
+          </div>
+          <div class="form-field error-message" id="login-error" aria-live="polite" hidden></div>
+          <button class="button button-primary" type="submit">Continue to dashboard</button>
+          <p class="footer-note">Secure access to your affiliate metrics and payout schedule.</p>
+        </form>
+        <p class="auth-footer">New to Jetstark? <a href="/signup.html">Create an account.</a></p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="logo footer-logo" href="/">Jetstark</a>
+        <p>Affiliate tools for creators who want to monetize content with confidence.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/how-it-works.html">How It Works</a>
+      </div>
+    </div>
+    <div class="license-status">
+      <p>&copy; 2026 Jetstark Inc. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { handleLogin } from '/js/auth.js';
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+  </script>
+</body>
+</html>

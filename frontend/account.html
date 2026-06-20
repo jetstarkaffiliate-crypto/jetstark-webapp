@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>My Account — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/account.html" class="active">Account</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/orders.html">Orders</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">U</div>
+          <div class="user-name" id="header-user-name">User</div>
+        </div>
+        <button id="logout-btn" class="header-logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <h1>My Account</h1>
+
+      <div class="dashboard-card" id="account-info">
+        <p>Loading...</p>
+      </div>
+
+      <div class="dashboard-card card-gap">
+        <h2>Edit Profile</h2>
+        <form id="profile-form" class="auth-form">
+          <div class="form-field">
+            <label for="edit-name">Full Name</label>
+            <input id="edit-name" type="text" required maxlength="255" />
+          </div>
+          <div class="form-field">
+            <label for="edit-phone">Phone</label>
+            <input id="edit-phone" type="tel" maxlength="20" />
+          </div>
+          <div class="form-field">
+            <label for="edit-bio">Bio</label>
+            <textarea id="edit-bio" rows="3" maxlength="1000" class="resize-vertical"></textarea>
+          </div>
+          <div class="form-field error-message" id="profile-error" hidden></div>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+      </div>
+
+      <div class="dashboard-card card-gap">
+        <h2>Change Password</h2>
+        <form id="password-form" class="auth-form">
+          <div class="form-field">
+            <label for="current-password">Current Password</label>
+            <input id="current-password" type="password" required autocomplete="current-password" />
+          </div>
+          <div class="form-field">
+            <label for="new-password">New Password</label>
+            <input id="new-password" type="password" required minlength="8" autocomplete="new-password" />
+          </div>
+          <div class="form-field error-message" id="password-error" hidden></div>
+          <button type="submit" class="btn btn-primary">Change Password</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a><p>Your account and order center.</p></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { auth, users, sanitizeHtml, showToast } from '/js/api.js';
+
+    if (requireAuth()) {
+      setupHeader();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+
+      auth.me().then(user => {
+        const el = document.getElementById('account-info');
+        if (el) el.innerHTML = `
+          <h2>${sanitizeHtml(user.full_name)}</h2>
+          <p>Email: ${sanitizeHtml(user.email)}</p>
+          <p>Role: ${sanitizeHtml(user.role)}</p>
+          <p>Verified: ${user.is_verified ? 'Yes' : 'No'}</p>
+          <p>Member since: ${new Date(user.created_at).toLocaleDateString()}</p>
+        `;
+
+        document.getElementById('edit-name').value = user.full_name || '';
+        document.getElementById('edit-phone').value = user.phone || '';
+        document.getElementById('edit-bio').value = user.bio || '';
+      }).catch(() => {});
+
+      document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById('profile-error');
+        errEl.hidden = true;
+        try {
+          const data = {
+            full_name: document.getElementById('edit-name').value.trim(),
+            phone: document.getElementById('edit-phone').value.trim() || null,
+            bio: document.getElementById('edit-bio').value.trim() || null,
+          };
+          const updated = await users.updateProfile(data);
+          const stored = localStorage.getItem('jetstark_user');
+          if (stored) {
+            const user = JSON.parse(stored);
+            user.full_name = updated.full_name;
+            localStorage.setItem('jetstark_user', JSON.stringify(user));
+          }
+          setupHeader();
+          showToast('Profile updated!', 'success');
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.hidden = false;
+        }
+      });
+
+      document.getElementById('password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById('password-error');
+        errEl.hidden = true;
+        try {
+          await auth.changePassword({
+            current_password: document.getElementById('current-password').value,
+            new_password: document.getElementById('new-password').value,
+          });
+          document.getElementById('password-form').reset();
+          showToast('Password changed!', 'success');
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.hidden = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
