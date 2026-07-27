@@ -32,7 +32,11 @@
     <div class="container">
       <div class="flex-header">
         <h1>Vendor Dashboard</h1>
-        <button class="btn btn-primary" id="add-product-btn">+ Add Product</button>
+        <div class="flex gap-sm">
+          <button class="button button-secondary button-small" id="export-earnings-csv">Export Earnings</button>
+          <button class="button button-secondary button-small" id="export-products-csv">Export Products</button>
+          <button class="btn btn-primary" id="add-product-btn">+ Add Product</button>
+        </div>
       </div>
 
       <div class="stats-grid section-gap" id="vendor-stats">
@@ -100,6 +104,24 @@
             </div>
           </div>
         </div>
+        <!-- File Upload Section (ebooks / courses) -->
+        <div id="file-upload-section" class="form-group-grid" hidden>
+          <div id="ebook-upload" hidden class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">E-book File (PDF, EPUB)</label>
+            <input type="file" class="form-input" id="product-file" accept=".pdf,.epub,.mobi" />
+            <input type="hidden" id="product-file-url" />
+            <div id="ebook-file-info" class="file-info" hidden>
+              <span id="ebook-file-name"></span>
+              <button type="button" class="btn btn-sm btn-ghost" id="ebook-file-remove">Remove</button>
+            </div>
+          </div>
+          <div id="course-lessons" hidden class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label">Course Lessons</label>
+            <div id="lesson-list" class="lesson-list"></div>
+            <button type="button" class="btn btn-sm btn-outline mt-sm" id="add-lesson-btn">+ Add Lesson</button>
+            <input type="hidden" id="course-content" />
+          </div>
+        </div>
         <div class="flex gap-md mt-lg">
           <button type="submit" class="btn btn-primary" id="form-submit-btn">Save Product</button>
           <button type="button" class="btn btn-outline" id="modal-cancel">Cancel</button>
@@ -148,12 +170,115 @@
         preview.hidden = false;
       }
       document.getElementById('form-submit-btn').textContent = product ? 'Update Product' : 'Save Product';
+      resetFileUploadSection();
+      if (product) {
+        if (product.category === 'ebook' && product.file_path) {
+          document.getElementById('product-file-url').value = product.file_path;
+          document.getElementById('ebook-file-name').textContent = product.file_path.split('/').pop();
+          document.getElementById('ebook-file-info').hidden = false;
+        } else if (product.category === 'course' && product.course_content) {
+          try {
+            const lessons = JSON.parse(product.course_content);
+            (Array.isArray(lessons) ? lessons : []).forEach(l => addLessonRow(l));
+          } catch {}
+        }
+      }
+      updateFileUploadSection();
       document.getElementById('product-modal').hidden = false;
     }
 
     function hideModal() {
       document.getElementById('product-modal').hidden = true;
     }
+
+    // --- File / Course Upload Logic ---
+    function updateFileUploadSection() {
+      const cat = document.getElementById('product-category').value;
+      const section = document.getElementById('file-upload-section');
+      const ebookDiv = document.getElementById('ebook-upload');
+      const courseDiv = document.getElementById('course-lessons');
+      if (cat === 'ebook') {
+        section.hidden = false;
+        ebookDiv.hidden = false;
+        courseDiv.hidden = true;
+      } else if (cat === 'course') {
+        section.hidden = false;
+        ebookDiv.hidden = true;
+        courseDiv.hidden = false;
+      } else {
+        section.hidden = true;
+        ebookDiv.hidden = true;
+        courseDiv.hidden = true;
+      }
+    }
+
+    function resetFileUploadSection() {
+      document.getElementById('product-file').value = '';
+      document.getElementById('product-file-url').value = '';
+      document.getElementById('ebook-file-info').hidden = true;
+      document.getElementById('course-content').value = '';
+      document.getElementById('lesson-list').innerHTML = '';
+      lessonCount = 0;
+    }
+
+    let lessonCount = 0;
+
+    function addLessonRow(data) {
+      data = data || {};
+      const idx = lessonCount++;
+      const div = document.createElement('div');
+      div.className = 'lesson-item';
+      div.dataset.index = idx;
+      div.innerHTML = `
+        <input type="text" class="form-input" placeholder="Lesson title" value="${sanitizeHtml(data.title || '')}" />
+        <input type="file" accept="video/*" class="lesson-file-input" />
+        <input type="hidden" class="lesson-url" value="${sanitizeHtml(data.url || '')}" />
+        <input type="hidden" class="lesson-size" value="${data.size || ''}" />
+        <button type="button" class="btn-icon lesson-remove" title="Remove lesson">&times;</button>
+      `;
+      div.querySelector('.lesson-file-input').addEventListener('change', async (ev) => {
+        const file = ev.target.files[0];
+        if (!file) return;
+        const fDiv = ev.target.closest('.lesson-item');
+        try {
+          const result = await products.uploadFile(file);
+          fDiv.querySelector('.lesson-url').value = result.url;
+          fDiv.querySelector('.lesson-size').value = result.size || 0;
+          showToast(`"${file.name}" uploaded`, 'success');
+        } catch (err) {
+          showToast('Upload failed: ' + err.message, 'error');
+        }
+      });
+      div.querySelector('.lesson-remove').addEventListener('click', () => {
+        div.remove();
+      });
+      document.getElementById('lesson-list').appendChild(div);
+    }
+
+    document.getElementById('product-category').addEventListener('change', updateFileUploadSection);
+
+    document.getElementById('product-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const info = document.getElementById('ebook-file-info');
+      document.getElementById('ebook-file-name').textContent = file.name;
+      info.hidden = false;
+      try {
+        const result = await products.uploadFile(file);
+        document.getElementById('product-file-url').value = result.url;
+        showToast(`"${file.name}" uploaded`, 'success');
+      } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+      }
+    });
+
+    document.getElementById('ebook-file-remove').addEventListener('click', () => {
+      document.getElementById('product-file').value = '';
+      document.getElementById('product-file-url').value = '';
+      document.getElementById('ebook-file-info').hidden = true;
+    });
+
+    document.getElementById('add-lesson-btn').addEventListener('click', () => addLessonRow());
 
     document.getElementById('product-image-file').addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -181,7 +306,7 @@
           <div class="order-card-header">
             <div>
               <h3>${sanitizeHtml(p.title)}</h3>
-              <p>${sanitizeHtml(p.category)} ${p.cover_image_url ? '&middot; <a href="'+sanitizeHtml(p.cover_image_url)+'" target="_blank" rel="noopener">Image</a>' : ''}</p>
+              <p>${sanitizeHtml(p.category)} ${p.cover_image_url ? '&middot; <a href="'+sanitizeHtml(p.cover_image_url)+'" target="_blank" rel="noopener">Image</a>' : ''} ${p.file_path ? ' &middot; <span class="badge badge-info">File</span>' : ''} ${p.course_content ? ' &middot; <span class="badge badge-info">Course</span>' : ''}</p>
             </div>
             <span class="badge badge-${p.status}">${p.status}</span>
           </div>
@@ -216,11 +341,9 @@
       const total = products.length;
       const published = products.filter(p => p.status === 'published').length;
       const pending = products.filter(p => p.status === 'pending').length;
-      const rejected = products.filter(p => p.status === 'rejected').length;
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-published').textContent = published;
       document.getElementById('stat-pending').textContent = pending;
-      document.getElementById('stat-rejected').textContent = rejected;
     }
 
     function loadEarnings() {
@@ -259,14 +382,38 @@
       document.getElementById('product-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('product-id').value;
+        const cat = document.getElementById('product-category').value;
         const data = {
           title: document.getElementById('product-title').value,
           description: document.getElementById('product-description').value,
-          category: document.getElementById('product-category').value,
+          category: cat,
           price: parseFloat(document.getElementById('product-price').value),
           commission_rate: parseFloat(document.getElementById('product-commission').value),
           cover_image_url: document.getElementById('product-image').value || null,
         };
+
+        // Include ebook file path
+        if (cat === 'ebook') {
+          const fileUrl = document.getElementById('product-file-url').value;
+          if (fileUrl) data.file_path = fileUrl;
+        }
+
+        // Include course lessons
+        if (cat === 'course') {
+          const lessonItems = document.querySelectorAll('#lesson-list .lesson-item');
+          const lessons = [];
+          lessonItems.forEach(item => {
+            const title = item.querySelector('input[type="text"]').value.trim();
+            const url = item.querySelector('.lesson-url').value;
+            const size = item.querySelector('.lesson-size').value;
+            if (title && url) {
+              lessons.push({ title, url, size: parseInt(size) || 0 });
+            }
+          });
+          if (lessons.length) {
+            data.course_content = JSON.stringify(lessons);
+          }
+        }
 
         try {
           if (id) {
@@ -281,6 +428,26 @@
         }
       });
     }
+
+    document.getElementById('export-earnings-csv')?.addEventListener('click', async () => {
+      try {
+        const { exports } = await import('/js/api.js');
+        await exports.downloadCsv('earnings/csv');
+        showToast('Earnings exported', 'success');
+      } catch (err) {
+        showToast('Export failed: ' + err.message, 'error');
+      }
+    });
+
+    document.getElementById('export-products-csv')?.addEventListener('click', async () => {
+      try {
+        const { exports } = await import('/js/api.js');
+        await exports.downloadCsv('products/csv');
+        showToast('Products exported', 'success');
+      } catch (err) {
+        showToast('Export failed: ' + err.message, 'error');
+      }
+    });
   </script>
 </body>
 </html>

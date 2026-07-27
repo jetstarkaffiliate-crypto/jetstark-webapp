@@ -172,10 +172,11 @@
               });
             }
           } catch (e) {}
+
+          document.getElementById('review-form-container').style.display = 'block';
         }
 
         document.getElementById('wishlist-btn').addEventListener('click', async () => {
-          const tokens = getTokens();
           if (!tokens.access) { window.location.href = '/login.html'; return; }
           const btn = document.getElementById('wishlist-btn');
           btn.disabled = true;
@@ -199,9 +200,7 @@
           `).join('');
         }).catch(() => {});
 
-        const tokens = getTokens();
         if (tokens.access) {
-          document.getElementById('review-form-container').style.display = 'block';
           document.getElementById('review-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const rating = parseInt(document.getElementById('review-rating').value, 10);

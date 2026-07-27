@@ -1,18 +1,57 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from pathlib import Path
+import os
+from datetime import datetime, timezone
 from app.database import get_db
 from app.core.dependencies import get_current_user, require_role
+from app.core.notifications import notify_user
 from app.models.user import User, UserRole
 from app.models.product import Product, ProductStatus
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.affiliate import AffiliateLink, AffiliateConversion
-from app.schemas.order import OrderCreate, OrderResponse, OrderListResponse, OrderStatusUpdate
+from app.schemas.order import OrderCreate, OrderResponse, OrderListResponse, OrderStatusUpdate, OrderItemSchema
 from app.schemas.product import ProductResponse
 from app.services.email import send_order_confirmation
 from decimal import Decimal
 
 router = APIRouter(prefix="/api/orders", tags=["Orders"])
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+
+
+def _build_order_response(order: Order) -> OrderResponse:
+    items = []
+    for item in order.items:
+        has_download = False
+        if item.product and item.product.file_path:
+            has_download = True
+        items.append(OrderItemSchema(
+            id=item.id,
+            product_id=item.product_id,
+            product_name=item.product_name,
+            price=item.price,
+            quantity=item.quantity,
+            vendor_id=item.vendor_id,
+            vendor_name=item.vendor_name,
+            download_count=item.download_count,
+            has_download=has_download,
+        ))
+    return OrderResponse(
+        id=order.id,
+        buyer_id=order.buyer_id,
+        status=order.status.value if isinstance(order.status, OrderStatus) else order.status,
+        subtotal=order.subtotal,
+        discount=order.discount,
+        total=order.total,
+        payment_method=order.payment_method,
+        payment_reference=order.payment_reference,
+        promo_code=order.promo_code,
+        created_at=order.created_at,
+        items=items,
+    )
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -101,7 +140,7 @@ async def create_order(
         total=f"{order.total:,.2f}",
     )
 
-    return OrderResponse.model_validate(order)
+    return _build_order_response(order)
 
 
 @router.get("", response_model=OrderListResponse)
@@ -114,9 +153,38 @@ async def list_orders(
     )
     orders = result.scalars().all()
     return OrderListResponse(
-        orders=[OrderResponse.model_validate(o) for o in orders],
+        orders=[_build_order_response(o) for o in orders],
         total=len(orders),
     )
+
+
+@router.get("/buyer/stats")
+async def buyer_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Order).where(Order.buyer_id == current_user.id)
+    )
+    orders = result.scalars().all()
+
+    total_orders = len(orders)
+    completed_orders = sum(1 for o in orders if o.status == OrderStatus.COMPLETED)
+    total_spent = sum(o.total for o in orders if o.status == OrderStatus.COMPLETED)
+
+    digital_items = 0
+    for order in orders:
+        if order.status == OrderStatus.COMPLETED:
+            for item in order.items:
+                if item.product and item.product.file_path:
+                    digital_items += 1
+
+    return {
+        "total_orders": total_orders,
+        "completed_orders": completed_orders,
+        "total_spent": float(total_spent),
+        "digital_purchases": digital_items,
+    }
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -131,7 +199,51 @@ async def get_order(
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    return OrderResponse.model_validate(order)
+    return _build_order_response(order)
+
+
+@router.get("/{order_id}/items/{item_id}/download")
+async def download_item(
+    order_id: str,
+    item_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Order).where(Order.id == order_id, Order.buyer_id == current_user.id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    if order.status != OrderStatus.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is not completed")
+
+    item = None
+    for i in order.items:
+        if i.id == item_id:
+            item = i
+            break
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order item not found")
+
+    if not item.product or not item.product.file_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No file available for this product")
+
+    file_path = Path(UPLOAD_DIR) / "products" / item.product.file_path.lstrip("/")
+    if not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
+
+    item.download_count += 1
+    item.last_downloaded_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    filename = item.product.file_path.split("/")[-1]
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 @router.get("/admin/all", response_model=OrderListResponse)
@@ -142,7 +254,7 @@ async def list_all_orders(
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
     orders = result.scalars().all()
     return OrderListResponse(
-        orders=[OrderResponse.model_validate(o) for o in orders],
+        orders=[_build_order_response(o) for o in orders],
         total=len(orders),
     )
 
@@ -162,7 +274,15 @@ async def update_order_status(
     order.status = OrderStatus(data.status)
     await db.commit()
     await db.refresh(order)
-    return OrderResponse.model_validate(order)
+
+    await notify_user(order.buyer_id, {
+        "type": "order_status",
+        "order_id": order.id,
+        "status": order.status.value,
+        "message": f"Your order #{order.id[:8]} is now {order.status.value}",
+    })
+
+    return _build_order_response(order)
 
 
 @router.get("/vendor/earnings")

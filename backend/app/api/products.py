@@ -116,6 +116,9 @@ async def create_product(
         price=data.price,
         commission_rate=data.commission_rate,
         cover_image_url=data.cover_image_url,
+        file_path=data.file_path,
+        file_size=data.file_size,
+        course_content=data.course_content,
     )
     db.add(product)
     await db.commit()
@@ -149,6 +152,22 @@ async def update_product(
     resp = ProductResponse.model_validate(product)
     resp.vendor_name = current_user.full_name
     return resp
+
+
+@router.post("/upload-file", status_code=status.HTTP_200_OK)
+async def upload_product_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role(UserRole.VENDOR)),
+):
+    UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads")) / "products" / "files"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    ext = file.filename.rsplit(".", 1)[-1] if "." in (file.filename or "") else "bin"
+    filename = f"{uuid.uuid4()}.{ext}"
+    path = UPLOAD_DIR / filename
+    content = await file.read()
+    with open(path, "wb") as f:
+        f.write(content)
+    return {"url": f"/uploads/products/files/{filename}", "size": len(content)}
 
 
 @router.post("/upload-image", status_code=status.HTTP_200_OK)
@@ -231,6 +250,15 @@ async def approve_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     product.status = ProductStatus.PUBLISHED
     await db.commit()
+
+    from app.core.notifications import notify_user
+    await notify_user(product.vendor_id, {
+        "type": "product_approved",
+        "product_id": product.id,
+        "product_title": product.title,
+        "message": f"Your product \"{product.title}\" has been approved and is now live!",
+    })
+
     return {"message": "Product approved"}
 
 
@@ -246,4 +274,13 @@ async def reject_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
     product.status = ProductStatus.REJECTED
     await db.commit()
+
+    from app.core.notifications import notify_user
+    await notify_user(product.vendor_id, {
+        "type": "product_rejected",
+        "product_id": product.id,
+        "product_title": product.title,
+        "message": f"Your product \"{product.title}\" was not approved. Please review and resubmit.",
+    })
+
     return {"message": "Product rejected"}

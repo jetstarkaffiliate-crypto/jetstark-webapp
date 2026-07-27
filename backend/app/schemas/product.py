@@ -11,14 +11,20 @@ class ProductCreate(BaseModel):
     price: Decimal = Field(gt=0, le=9999999.99)
     commission_rate: Decimal = Field(ge=0, le=100, default=Decimal("20.00"))
     cover_image_url: Optional[str] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    course_content: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=5000)
+    description: Optional[str] = None
     category: Optional[str] = None
     price: Optional[Decimal] = Field(None, gt=0)
     commission_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    course_content: Optional[str] = None
 
 
 class ProductResponse(BaseModel):
@@ -30,6 +36,9 @@ class ProductResponse(BaseModel):
     price: Decimal
     commission_rate: Decimal
     cover_image_url: Optional[str]
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    course_content: Optional[str] = None
     status: str
     is_featured: bool
     rating: Decimal

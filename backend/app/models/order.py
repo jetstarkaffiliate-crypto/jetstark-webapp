@@ -48,6 +48,8 @@ class OrderItem(Base):
     quantity: Mapped[int] = mapped_column(default=1)
     vendor_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     vendor_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    download_count: Mapped[int] = mapped_column(default=0)
+    last_downloaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     order = relationship("Order", back_populates="items", lazy="selectin")

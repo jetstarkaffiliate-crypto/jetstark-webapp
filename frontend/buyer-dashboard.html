@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>Buyer Dashboard — Jetstark</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header dashboard-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Jetstark</a>
+      <nav class="nav-links">
+        <a href="/buyer-dashboard.html" class="active">Dashboard</a>
+        <a href="/marketplace.html">Marketplace</a>
+        <a href="/orders.html">Orders</a>
+      </nav>
+      <div class="header-right">
+        <div class="user-panel">
+          <div class="user-avatar" id="user-initials">U</div>
+          <div class="user-name" id="header-user-name">User</div>
+        </div>
+        <button id="logout-btn" class="header-logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="container">
+      <div class="flex-header">
+        <h1>My Dashboard</h1>
+        <button class="button button-secondary button-small" id="export-orders-csv">Export Orders (CSV)</button>
+      </div>
+
+      <div class="stats-grid section-gap" id="buyer-stats">
+        <div class="stat-card"><span class="stat-label">Total Orders</span><span class="stat-value" id="stat-total-orders">0</span></div>
+        <div class="stat-card"><span class="stat-label">Completed</span><span class="stat-value stat-value-accent" id="stat-completed">0</span></div>
+        <div class="stat-card"><span class="stat-label">Total Spent</span><span class="stat-value stat-value-accent" id="stat-spent">₦0</span></div>
+        <div class="stat-card"><span class="stat-label">Digital Purchases</span><span class="stat-value stat-value-cyan" id="stat-digital">0</span></div>
+      </div>
+
+      <div class="dashboard-card card-gap">
+        <div class="card-header">
+          <h2>Recent Orders</h2>
+          <a href="/orders.html">View All</a>
+        </div>
+        <div id="recent-orders"><div class="skeleton-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text"></div></div></div>
+      </div>
+
+      <div class="quick-actions-grid card-gap">
+        <a href="/marketplace.html" class="action-button">
+          <span class="action-icon">🛒</span>
+          <div><strong>Browse Marketplace</strong><small>Discover new products</small></div>
+        </a>
+        <a href="/orders.html" class="action-button">
+          <span class="action-icon">📦</span>
+          <div><strong>My Orders</strong><small>View order history</small></div>
+        </a>
+        <a href="/account.html" class="action-button">
+          <span class="action-icon">👤</span>
+          <div><strong>Account Settings</strong><small>Edit profile & password</small></div>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div><a class="logo footer-logo" href="/">Jetstark</a></div>
+      <div class="footer-links"><a href="/">Home</a><a href="/marketplace.html">Marketplace</a></div>
+    </div>
+    <div class="license-status"><p>&copy; 2026 Jetstark Inc.</p></div>
+  </footer>
+
+  <script type="module">
+    import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
+    import { orders, sanitizeHtml, showToast } from '/js/api.js';
+
+    if (requireAuth()) {
+      setupHeader();
+      document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
+
+      async function loadDashboard() {
+        try {
+          const stats = await orders.buyerStats();
+          document.getElementById('stat-total-orders').textContent = stats.total_orders;
+          document.getElementById('stat-completed').textContent = stats.completed_orders;
+          document.getElementById('stat-spent').textContent = `₦${Number(stats.total_spent).toLocaleString()}`;
+          document.getElementById('stat-digital').textContent = stats.digital_purchases;
+        } catch {}
+
+        try {
+          const data = await orders.list();
+          const list = (data.orders || []).slice(0, 5);
+          const el = document.getElementById('recent-orders');
+          if (!list.length) {
+            el.innerHTML = '<div class="empty-state"><p>No orders yet. <a href="/marketplace.html">Start shopping!</a></p></div>';
+            return;
+          }
+          el.innerHTML = list.map(o => `
+            <article class="order-card">
+              <div class="order-card-header">
+                <div>
+                  <h3>Order #${sanitizeHtml(o.id.slice(0, 8))}</h3>
+                  <p>${new Date(o.created_at).toLocaleDateString()} &middot; ${o.items?.length || 0} item(s)</p>
+                </div>
+                <span class="badge badge-${o.status}">${o.status}</span>
+              </div>
+              <div class="order-summary-row">
+                <span>Total</span><strong>₦${Number(o.total).toLocaleString()}</strong>
+              </div>
+              ${o.items?.some(i => i.has_download && o.status === 'completed') ? `
+                <div class="flex gap-sm mt-sm" style="flex-wrap:wrap">
+                  ${o.items.filter(i => i.has_download && o.status === 'completed').map(i => `
+                    <button class="download-btn" data-order="${o.id}" data-item="${i.id}">Download ${sanitizeHtml(i.product_name)}</button>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </article>
+          `).join('');
+
+          el.querySelectorAll('.download-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              btn.textContent = 'Downloading...';
+              try {
+                await orders.downloadItem(btn.dataset.order, btn.dataset.item);
+                showToast('Download started', 'success');
+              } catch (err) {
+                showToast('Download failed: ' + err.message, 'error');
+              }
+              btn.disabled = false;
+              btn.textContent = 'Download';
+            });
+          });
+        } catch (err) {
+          document.getElementById('recent-orders').innerHTML =
+            `<div class="empty-state"><p>Error: ${sanitizeHtml(err.message)}</p></div>`;
+        }
+      }
+
+      loadDashboard();
+
+      document.getElementById('export-orders-csv')?.addEventListener('click', async () => {
+        try {
+          const { exports } = await import('/js/api.js');
+          await exports.downloadCsv('orders/csv/my');
+          showToast('Orders exported', 'success');
+        } catch (err) {
+          showToast('Export failed: ' + err.message, 'error');
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -30,13 +30,13 @@
       try { role = JSON.parse(userData)?.role || 'buyer'; } catch {}
 
       const dashboardMap = {
-        buyer: '/account.html',
+        buyer: '/buyer-dashboard.html',
         affiliate: '/affiliate-dashboard.html',
         vendor: '/vendor-dashboard.html',
         admin: '/admin-dashboard.html',
       };
 
-      const target = dashboardMap[role] || '/account.html';
+      const target = dashboardMap[role] || '/buyer-dashboard.html';
       const labels = { buyer: 'Buyer Dashboard', affiliate: 'Affiliate Dashboard', vendor: 'Vendor Dashboard', admin: 'Admin Dashboard' };
       document.getElementById('loading-message').textContent = `Taking you to your ${labels[role] || 'Dashboard'}.`;
 

@@ -49,6 +49,7 @@ export async function renderProductGrid(containerId, params = {}, append = false
     }
 
     const hasMore = currentPage * PAGE_SIZE < currentTotal;
+    if (productList.length) currentPage++;
     let loadMoreEl = document.getElementById('load-more-container');
     if (!loadMoreEl) {
       loadMoreEl = document.createElement('div');

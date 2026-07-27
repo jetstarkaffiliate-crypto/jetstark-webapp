@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field
 
 
 class OrderItemSchema(BaseModel):
+    id: Optional[str] = None
     product_id: str
     product_name: str
     price: Decimal
     quantity: int = 1
     vendor_id: Optional[str] = None
     vendor_name: Optional[str] = None
+    download_count: int = 0
+    has_download: bool = False
 
     model_config = {"from_attributes": True}
 

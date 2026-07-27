@@ -1,14 +1,16 @@
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from app.config import settings
 from app.database import init_db
-from app.api import auth, users, products, orders, affiliates, payouts, reviews, payments, cart, wishlist, admin
+from app.api import auth, users, products, orders, affiliates, payouts, reviews, payments, cart, wishlist, admin, exports
+from app.core.notifications import manager
+from app.core.security import decode_token
 
 
 @asynccontextmanager
@@ -72,6 +74,33 @@ async def public_config():
         "app_name": settings.app_name,
     }
 
+# WebSocket for real-time notifications
+@app.websocket("/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Missing token")
+        return
+
+    payload = decode_token(token)
+    if not payload:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    user_id = payload.get("sub")
+    if not user_id:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+
 # Uploads directory (Render disk or local)
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 UPLOAD_PATH = Path(UPLOAD_DIR) / "products"
@@ -90,6 +119,7 @@ app.include_router(payments.router)
 app.include_router(cart.router)
 app.include_router(wishlist.router)
 app.include_router(admin.router)
+app.include_router(exports.router)
 
 # Serve frontend static files (for Render single-service deployment).
 # MUST be registered after API routes so API takes precedence over catch-all.

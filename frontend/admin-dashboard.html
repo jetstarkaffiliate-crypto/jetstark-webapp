@@ -40,6 +40,11 @@
         <div class="stat-card"><span class="stat-label">Revenue</span><span class="stat-value stat-value-accent" id="stat-revenue">₦0</span></div>
       </div>
 
+      <div class="flex gap-sm mt-md mb-lg" style="flex-wrap:wrap">
+        <button class="button button-secondary button-small" id="export-orders-csv">Export Orders (CSV)</button>
+        <button class="button button-secondary button-small" id="export-products-csv">Export Products (CSV)</button>
+      </div>
+
       <div class="tabs">
         <button class="tab-btn active" data-tab="pending">Pending Review</button>
         <button class="tab-btn" data-tab="all-products">All Products</button>
@@ -298,6 +303,26 @@
 
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => showTab(btn.dataset.tab));
+      });
+
+      document.getElementById('export-orders-csv')?.addEventListener('click', async () => {
+        try {
+          const { exports } = await import('/js/api.js');
+          await exports.downloadCsv('orders/csv');
+          showToast('Orders exported', 'success');
+        } catch (err) {
+          showToast('Export failed: ' + err.message, 'error');
+        }
+      });
+
+      document.getElementById('export-products-csv')?.addEventListener('click', async () => {
+        try {
+          const { exports } = await import('/js/api.js');
+          await exports.downloadCsv('products/csv');
+          showToast('Products exported', 'success');
+        } catch (err) {
+          showToast('Export failed: ' + err.message, 'error');
+        }
       });
     }
   </script>

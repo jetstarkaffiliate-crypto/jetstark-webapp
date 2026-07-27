@@ -226,7 +226,8 @@ def downgrade() -> None:
     op.drop_table("products")
     op.drop_table("users")
 
-    op.execute("DROP TYPE IF EXISTS userrole")
-    op.execute("DROP TYPE IF EXISTS productstatus")
-    op.execute("DROP TYPE IF EXISTS orderstatus")
-    op.execute("DROP TYPE IF EXISTS payoutstatus")
+    if context.get_bind().dialect.name == "postgresql":
+        op.execute("DROP TYPE IF EXISTS userrole")
+        op.execute("DROP TYPE IF EXISTS productstatus")
+        op.execute("DROP TYPE IF EXISTS orderstatus")
+        op.execute("DROP TYPE IF EXISTS payoutstatus")

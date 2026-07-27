@@ -8,10 +8,9 @@ class Settings(BaseSettings):
     app_name: str = "Jetstark Affiliate Hub"
     debug: bool = False
 
-    # Database
-    # Render provides postgres:// URLs; auto-convert to asyncpg scheme
-    database_url: str = "postgresql+asyncpg://jetstark:changeme@localhost:5432/jetstark"
-    database_url_sync: str = "postgresql://jetstark:changeme@localhost:5432/jetstark"
+    # Database (SQLite — zero dependencies, no server needed)
+    database_url: str = "sqlite+aiosqlite:///./jetstark.db"
+    database_url_sync: str = "sqlite:///./jetstark.db"
 
     @model_validator(mode="after")
     def normalize_db_urls(self):
@@ -29,9 +28,6 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     bcrypt_rounds: int = 12
-
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
 
     # Payment
     paystack_secret_key: str = ""

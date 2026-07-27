@@ -12,22 +12,29 @@ os.environ["PYTEST_RUNNING"] = "1"
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://jetstark:changeme@localhost:5432/jetstark_test",
+    "sqlite+aiosqlite:///./jetstark_test.db",
 )
+
+_is_sqlite = TEST_DATABASE_URL.startswith("sqlite")
 
 
 @pytest_asyncio.fixture(scope="function")
 async def engine():
-    e = create_async_engine(TEST_DATABASE_URL, pool_size=1, max_overflow=0)
+    if _is_sqlite:
+        from sqlalchemy.pool import StaticPool
+        e = create_async_engine(
+            TEST_DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    else:
+        e = create_async_engine(TEST_DATABASE_URL, pool_size=1, max_overflow=0)
     async with e.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield e
     async with e.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await e.dispose()
-
-
-
 
 
 @pytest_asyncio.fixture

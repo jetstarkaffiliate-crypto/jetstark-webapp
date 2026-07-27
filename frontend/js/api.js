@@ -145,6 +145,19 @@ export const products = {
       return res.json();
     });
   },
+  uploadFile: (file) => {
+    const { access } = getTokens();
+    const form = new FormData();
+    form.append('file', file);
+    return fetch(`${API_BASE}/products/upload-file`, {
+      method: 'POST',
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+      body: form,
+    }).then(async res => {
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new ApiError(d.detail || `HTTP ${res.status}`, res.status); }
+      return res.json();
+    });
+  },
 };
 
 // Orders API
@@ -152,6 +165,31 @@ export const orders = {
   create: (data) => apiRequest('/orders', { method: 'POST', body: data }),
   list: () => apiRequest('/orders'),
   get: (id) => apiRequest(`/orders/${id}`),
+  buyerStats: () => apiRequest('/orders/buyer/stats'),
+  downloadItem: (orderId, itemId) => {
+    const { access } = getTokens();
+    return fetch(`${API_BASE}/orders/${orderId}/items/${itemId}/download`, {
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+    }).then(async res => {
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new ApiError(d.detail || `HTTP ${res.status}`, res.status); }
+      const blob = await res.blob();
+      const disposition = res.headers.get('content-disposition');
+      let filename = 'download';
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      return { success: true };
+    });
+  },
   vendorEarnings: () => apiRequest('/orders/vendor/earnings'),
   updateStatus: (orderId, status) => apiRequest(`/orders/${orderId}/status`, { method: 'PUT', body: { status } }),
 };
@@ -210,6 +248,34 @@ export const wishlist = {
   get: () => apiRequest('/wishlist'),
   add: (productId) => apiRequest(`/wishlist/products/${productId}`, { method: 'POST' }),
   remove: (productId) => apiRequest(`/wishlist/products/${productId}`, { method: 'DELETE' }),
+};
+
+// Export API
+export const exports = {
+  downloadCsv: (endpoint) => {
+    const { access } = getTokens();
+    return fetch(`${API_BASE}/export/${endpoint}`, {
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+    }).then(async res => {
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new ApiError(d.detail || `HTTP ${res.status}`, res.status); }
+      const blob = await res.blob();
+      const disposition = res.headers.get('content-disposition');
+      let filename = 'export.csv';
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      return { success: true };
+    });
+  },
 };
 
 // Sanitize helper (exported for use in views)

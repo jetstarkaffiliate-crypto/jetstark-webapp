@@ -13,11 +13,6 @@ services:
         fromDatabase:
           name: jetstark-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: jetstark-redis
-          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
@@ -25,9 +20,9 @@ services:
       - key: DEBUG
         value: "false"
       - key: PAYSTACK_SECRET_KEY
-        value: ""
+        value: "null"
       - key: PAYSTACK_PUBLIC_KEY
-        value: ""
+        value: "null"
       - key: SMTP_HOST
         value: ""
       - key: SMTP_PORT
@@ -42,14 +37,10 @@ services:
         value: ""
     healthCheckPath: /api/health
     autoDeploy: true
-
-  - type: keyvalue
-    name: jetstark-redis
-    plan: free
-    maxmemoryPolicy: noeviction
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/uploads
+      sizeGB: 1
 
 databases:
   - name: jetstark-db

@@ -48,7 +48,7 @@
 
   <script type="module">
     import { requireAuth, handleLogout, setupHeader } from '/js/auth.js';
-    import { orders, sanitizeHtml } from '/js/api.js';
+    import { orders, sanitizeHtml, showToast } from '/js/api.js';
 
     function renderItems(order) {
       if (!order.items?.length) return '';
@@ -56,6 +56,7 @@
         <div class="order-item-row">
           <span class="order-item-name">${sanitizeHtml(item.product_name)}</span>
           <span class="order-item-price">₦${Number(item.price).toLocaleString()} x${item.quantity}</span>
+          ${item.has_download && order.status === 'completed' ? `<button class="download-btn" data-order="${order.id}" data-item="${item.id}">Download</button>` : ''}
         </div>
       `).join('');
     }
@@ -99,6 +100,21 @@
               target.classList.toggle('open');
               btn.textContent = target.classList.contains('open') ? 'Hide items' : 'Show items';
             }
+          });
+        });
+
+        el.querySelectorAll('.download-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Downloading...';
+            try {
+              await orders.downloadItem(btn.dataset.order, btn.dataset.item);
+              showToast('Download started', 'success');
+            } catch (err) {
+              showToast('Download failed: ' + err.message, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Download';
           });
         });
       }).catch(err => {
