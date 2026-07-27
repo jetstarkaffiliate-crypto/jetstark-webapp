@@ -37,10 +37,6 @@ services:
         value: ""
     healthCheckPath: /api/health
     autoDeploy: true
-    disk:
-      name: uploads
-      mountPath: /opt/render/project/uploads
-      sizeGB: 1
 
 databases:
   - name: jetstark-db
